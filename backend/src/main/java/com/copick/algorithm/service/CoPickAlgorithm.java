@@ -157,9 +157,7 @@ public class CoPickAlgorithm {
             double ctx = hasContext ? 1.0 : 0.0;
 
             double q = 0.0;
-            if (movie.voteCount() >= 100) {
-                q = (movie.rating() - 5.0) / 10.0;
-            }
+            q = (movie.rating() - 5.0) / 10.0;
 
             double finalScore = g + config.beta() * ctx + config.rho() * q;
 
