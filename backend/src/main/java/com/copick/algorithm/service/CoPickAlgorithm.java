@@ -25,7 +25,7 @@ public class CoPickAlgorithm {
             List<MovieCandidate> candidates,
             boolean useMmr
     ) {
-        if (candidates == null || candidates.isEmpty()) {
+        if (candidates.isEmpty()) {
             return List.of();
         }
 
@@ -45,7 +45,7 @@ public class CoPickAlgorithm {
         if (useMmr) {
             return diversify(afterFinal);
         } else {
-            return afterFinal; // Возвращаем весь отсортированный список, сервис сам обрежет если нужно
+            return afterFinal;
         }
     }
 
@@ -68,7 +68,7 @@ public class CoPickAlgorithm {
 
                 sumWeights.merge(genreId, weight, Double::sum);
 
-                if (weight == -1.0 && (contextGenreIds == null || !contextGenreIds.contains(genreId))) {
+                if (weight == -1.0 && !contextGenreIds.contains(genreId)) {
                     vetoedGenres.add(genreId);
                 }
             }
@@ -194,7 +194,7 @@ public class CoPickAlgorithm {
             ms.put(movie.movieId(), 0.0);
         }
 
-        while (selected.size() < config.K() && selected.size() < pool.size()) {
+        while (selected.size() < pool.size()) {
             ScoredMovie bestMovie = null;
             double bestMmr = Double.NEGATIVE_INFINITY;
 
