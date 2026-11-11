@@ -5,17 +5,19 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_ROOT_PASSWORD:-postgres}
-      POSTGRES_DB: testdb
+      POSTGRES_DB: copick_db
     volumes:
       - postgres_data:/var/lib/postgresql
       - ./postgres_init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d testdb"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d copick_db"]
       interval: 5s
       timeout: 5s
       retries: 5
     ports:
       - "5433:5432"
+    networks:
+      - app_network
 
   postgres_migrate:
     container_name: postgres_migrate
@@ -24,23 +26,68 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_ROOT_PASSWORD:-postgres}
-      POSTGRES_DB: testdb
+      POSTGRES_DB: copick_db
     entrypoint: ["./migrator"]
     command: ["up", "-c", "config.yaml"]
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - app_network
 
   connector:
-      container_name: connector
-      build:
-        context: connector
-      environment:
-        TMDB_API_KEY: ${TMDB_API_KEY}
-      entrypoint: ["./connector"]
-      command: ["up", "-c", "config.yaml"]
-      depends_on:
-        postgres_migrate:
-          condition: service_completed_successfully
+    container_name: connector
+    build:
+      context: connector
+    environment:
+      TMDB_API_KEY: ${TMDB_API_KEY}
+    entrypoint: ["./connector"]
+    command: ["up", "-c", "config.yaml"]
+    depends_on:
+      postgres_migrate:
+        condition: service_completed_successfully
+    networks:
+      - app_network
+
+  backend:
+    container_name: copick_backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/copick_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_ROOT_PASSWORD:-postgres}
+      
+      JWT_SECRET: ${JWT_SECRET:-my-super-secret-local-key-for-development-1234567890}
+      JWT_DURATION: ${JWT_DURATION:-86400000}
+      
+      CONNECTOR_URL: http://connector:8080 
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres_migrate:
+        condition: service_completed_successfully
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  web:
+    container_name: copick_web
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+    networks:
+      - app_network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+
+networks:
+  app_network:
+    driver: bridge

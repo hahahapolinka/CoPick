@@ -2,10 +2,11 @@ package com.copick.algorithm.service;
 
 import com.copick.algorithm.config.AlgorithmConfig;
 import com.copick.algorithm.dto.*;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
+@Component
 public class CoPickAlgorithm {
 
     private final AlgorithmConfig config;
@@ -24,9 +25,7 @@ public class CoPickAlgorithm {
             List<MovieCandidate> candidates,
             boolean useMmr
     ) {
-        GroupProfile groupProfile = calculateGroupProfile(participants, contextGenreIds);
-
-        if (candidates.isEmpty()) {
+        if (candidates == null || candidates.isEmpty()) {
             return List.of();
         }
 
@@ -46,7 +45,7 @@ public class CoPickAlgorithm {
         if (useMmr) {
             return diversify(afterFinal);
         } else {
-            return afterFinal.stream().limit(config.K()).collect(Collectors.toList());
+            return afterFinal; // Возвращаем весь отсортированный список, сервис сам обрежет если нужно
         }
     }
 
@@ -69,7 +68,7 @@ public class CoPickAlgorithm {
 
                 sumWeights.merge(genreId, weight, Double::sum);
 
-                if (weight == -1.0 && !contextGenreIds.contains(genreId)) {
+                if (weight == -1.0 && (contextGenreIds == null || !contextGenreIds.contains(genreId))) {
                     vetoedGenres.add(genreId);
                 }
             }
@@ -80,7 +79,7 @@ public class CoPickAlgorithm {
             averageWeights.put(entry.getKey(), entry.getValue() / n);
         }
 
-        Map<Integer, Double> influenceCoefficients = getIntegerDoubleMap(averageWeights, vetoedGenres);
+        Map<Integer, Double> influenceCoefficients = getIntegerDoubleMap(averageWeights, vetoedGenres, contextGenreIds);
 
         return new GroupProfile(averageWeights, vetoedGenres, n, influenceCoefficients);
     }
@@ -115,7 +114,6 @@ public class CoPickAlgorithm {
         double mean = sum / count;
         double penalty = config.lambda() * Math.min(0, minWeight);
         return Math.max(-1.0, mean + penalty);
-
     }
 
     private double calculateGroupScore(List<Double> personalScores) {
@@ -155,11 +153,7 @@ public class CoPickAlgorithm {
 
             boolean hasContext = !Collections.disjoint(movie.genreIds(), contextSet);
             double ctx = hasContext ? 1.0 : 0.0;
-
-            double q = 0.0;
-            if (movie.voteCount() >= 100) {
-                q = (movie.rating() - 5.0) / 10.0;
-            }
+            double q = (movie.rating() - 5.0) / 10.0;
 
             double finalScore = g + config.beta() * ctx + config.rho() * q;
 
@@ -235,7 +229,11 @@ public class CoPickAlgorithm {
         return selected;
     }
 
-    private static Map<Integer, Double> getIntegerDoubleMap(Map<Integer, Double> averageWeights, Set<Integer> vetoedGenres) {
+    private static Map<Integer, Double> getIntegerDoubleMap(
+            Map<Integer, Double> averageWeights,
+            Set<Integer> vetoedGenres,
+            List<Integer> contextGenreIds
+    ) {
         Map<Integer, Double> influenceCoefficients = new HashMap<>();
         double positiveSum = 0.0;
 
@@ -254,7 +252,13 @@ public class CoPickAlgorithm {
                     influenceCoefficients.put(genreId, weight / positiveSum);
                 }
             }
+        } else if (contextGenreIds != null && !contextGenreIds.isEmpty()) {
+            double equalWeight = 1.0 / contextGenreIds.size();
+            for (Integer genreId : contextGenreIds) {
+                influenceCoefficients.put(genreId, equalWeight);
+            }
         }
+
         return influenceCoefficients;
     }
 

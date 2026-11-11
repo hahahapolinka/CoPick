@@ -3,9 +3,9 @@ spring:
     name: copick-backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/testdb
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5433/copick_db
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -14,7 +14,27 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-    show-sql: true #отладка
+    show-sql: true # отладка
+
+algorithm:
+  lambda: 0.5
+  alpha: 0.6
+  beta: 0.4
+  rho: 0.15
+  mu: 0.7
+  kappa: 0.5
+  M: 50
+  K: 20
+
+recommendations:
+  candidate-pool-size: 150
+
+jwt:
+  secret: ${JWT_SECRET}
+  duration: ${JWT_DURATION}
+
+connector:
+  url: ${CONNECTOR_URL:http://connector:8080}
 
 server:
   port: 8080
